@@ -1,32 +1,33 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import InputWithIcon from "../components/InputWithIcon";
 import PrimaryButton from "../components/PrimaryButton";
+import { useAdminAuth } from "../../hooks/useAdminAuth";
 
 const AdminLoginPage = () => {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const { login, user, token, loading, error } = useAdminAuth();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && token) {
+      router.push("/admin-dashboard");
+    }
+  }, [user, token, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    // Simuler une authentification (à remplacer par un appel API réel)
-    setTimeout(() => {
-      setLoading(false);
-      if (username === "admin" && password === "supersecret") {
-        router.push("/admin-dashboard");
-      } else {
-        setError("Identifiants administrateur invalides.");
-      }
-    }, 1000);
+    setLocalError(null);
+    try {
+      await login({ email, password });
+    } catch (err) {
+      setLocalError("Erreur lors de la connexion.");
+    }
   };
 
   return (
@@ -66,13 +67,13 @@ const AdminLoginPage = () => {
               administrateur.
             </p>
             <InputWithIcon
-              label="Nom d'utilisateur"
-              id="admin-username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              label="Email"
+              id="admin-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Nom d'utilisateur"
+              placeholder="Email"
               autoFocus
               icon={
                 <svg
@@ -161,9 +162,9 @@ const AdminLoginPage = () => {
               }
               containerClassName="mb-4"
             />
-            {error && (
+            {(error || localError) && (
               <div className="text-red-600 mb-4 text-center text-sm font-medium">
-                {error}
+                {error || localError}
               </div>
             )}
             <PrimaryButton

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "../components/Sidebar";
 import MobileSidebar from "../components/MobileSidebar";
 import KPICard from "../../../components/dashboard/kpi-card";
@@ -19,6 +20,7 @@ import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
 import ViewUserModal from "./ViewUserModal";
 import ClientOnlyDate from "../../../components/ClientOnlyDate";
+import { useAdminRequireAuth } from "../../../hooks/useAdminRequireAuth";
 
 type UserRole = "cashier" | "subadmin";
 
@@ -73,6 +75,9 @@ const mockUsers: UserRow[] = [
 ];
 
 export default function UsersPage() {
+  useAdminRequireAuth();
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"

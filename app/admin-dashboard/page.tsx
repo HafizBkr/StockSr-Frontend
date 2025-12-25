@@ -1,7 +1,9 @@
 "use client";
 import React from "react";
+import { useAdminRequireAuth } from "../../hooks/useAdminRequireAuth";
 
 export default function AdminDashboardPage() {
+  useAdminRequireAuth();
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
