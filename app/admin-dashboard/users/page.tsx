@@ -1,6 +1,5 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import MobileSidebar from "../components/MobileSidebar";
 import KPICard from "../../../components/dashboard/kpi-card";
@@ -21,63 +20,47 @@ import EditUserModal from "./EditUserModal";
 import ViewUserModal from "./ViewUserModal";
 import ClientOnlyDate from "../../../components/ClientOnlyDate";
 import { useAdminRequireAuth } from "../../../hooks/useAdminRequireAuth";
+import useAdminSubadminCaissier from "@/hooks/useAdminSubadminCaissier";
 
 type UserRole = "cashier" | "subadmin";
 
+// Types pour les données de l'API
+interface ApiSubadmin {
+  subadmin_id: string;
+  subadmin_email: string;
+  subadmin_name: string;
+  subadmin_password: string;
+  created_at: string;
+  last_login: string | null;
+  is_active: boolean;
+  created_by: string;
+}
+
+interface ApiCaissier {
+  caissier_id: string;
+  username: string;
+  password: string;
+  created_at: string;
+  last_login: string | null;
+  is_active: boolean;
+}
+
+// Interface pour l'affichage unifié
 interface UserRow {
   id: string;
-  name: string;
+  name?: string;
+  username?: string;
+  subadmin_name?: string;
+  subadmin_email?: string;
   email?: string;
-  createdAt: Date | null;
-  status: "active" | "inactive";
+  createdAt?: string | Date | null;
+  status?: "active" | "inactive";
+  is_active?: boolean;
   role: UserRole;
 }
 
-// Données mockées pour la démonstration
-const mockUsers: UserRow[] = [
-  {
-    id: "1",
-    name: "Jean Dupont",
-    email: "jean.dupont@example.com",
-    createdAt: new Date("2024-01-15"),
-    status: "active",
-    role: "subadmin",
-  },
-  {
-    id: "2",
-    name: "Marie Martin",
-    createdAt: new Date("2024-02-20"),
-    status: "active",
-    role: "cashier",
-  },
-  {
-    id: "3",
-    name: "Pierre Durand",
-    email: "pierre.durand@example.com",
-    createdAt: new Date("2024-01-10"),
-    status: "inactive",
-    role: "subadmin",
-  },
-  {
-    id: "4",
-    name: "Sophie Bernard",
-    createdAt: new Date("2024-03-05"),
-    status: "active",
-    role: "cashier",
-  },
-  {
-    id: "5",
-    name: "Luc Moreau",
-    createdAt: new Date("2024-02-28"),
-    status: "inactive",
-    role: "cashier",
-  },
-];
-
 export default function UsersPage() {
   useAdminRequireAuth();
-  const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
@@ -87,7 +70,6 @@ export default function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
-  const [users, setUsers] = useState<UserRow[]>(mockUsers);
 
   // État pour la sidebar mobile
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
@@ -95,28 +77,114 @@ export default function UsersPage() {
   const handleOpenSidebar = () => setSidebarMobileOpen(true);
   const handleCloseSidebar = () => setSidebarMobileOpen(false);
 
+  // Récupération du token super admin (adapter selon ton auth)
+  const [token] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("admin_token") || ""
+      : "",
+  );
+
+  // Hook pour subadmins
+  const {
+    data: subadmins,
+    loading: loadingSubadmins,
+    error: errorSubadmins,
+    fetchAll: fetchAllSubadmins,
+    createOne: createSubadmin,
+    updateOne: updateSubadmin,
+    deleteOne: deleteSubadmin,
+  } = useAdminSubadminCaissier<ApiSubadmin[]>({
+    resource: "subadmins",
+    token,
+  });
+
+  // Hook pour caissiers
+  const {
+    data: caissiers,
+    loading: loadingCaissiers,
+    error: errorCaissiers,
+    fetchAll: fetchAllCaissiers,
+    createOne: createCaissier,
+    updateOne: updateCaissier,
+    deleteOne: deleteCaissier,
+  } = useAdminSubadminCaissier<ApiCaissier[]>({
+    resource: "caissiers",
+    token,
+  });
+
+  // Regroupe tous les utilisateurs pour affichage
+  const users: UserRow[] = [
+    ...(subadmins || []).map((u: ApiSubadmin) => ({
+      ...u,
+      id: u.subadmin_id,
+      name: u.subadmin_name,
+      email: u.subadmin_email,
+      createdAt: u.created_at,
+      role: "subadmin" as UserRole,
+      status: u.is_active ? "active" : ("inactive" as "active" | "inactive"),
+    })),
+    ...(caissiers || []).map((u: ApiCaissier) => ({
+      ...u,
+      id: u.caissier_id,
+      name: u.username,
+      createdAt: u.created_at,
+      role: "cashier" as UserRole,
+      status: u.is_active ? "active" : ("inactive" as "active" | "inactive"),
+    })),
+  ];
+
+  // Fonctions memoized pour éviter les boucles infinies
+  const loadSubadmins = useCallback(() => {
+    if (token) {
+      fetchAllSubadmins();
+    }
+  }, [token, fetchAllSubadmins]);
+
+  const loadCaissiers = useCallback(() => {
+    if (token) {
+      fetchAllCaissiers();
+    }
+  }, [token, fetchAllCaissiers]);
+
+  // Rafraîchir la liste au chargement
+  useEffect(() => {
+    loadSubadmins();
+    loadCaissiers();
+  }, [loadSubadmins, loadCaissiers]);
+
   // Fonction pour basculer le statut d'un utilisateur
-  const toggleUserStatus = (userId: string) => {
-    setUsers((prevUsers) =>
-      prevUsers.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              status: user.status === "active" ? "inactive" : "active",
-            }
-          : user,
-      ),
-    );
+  const toggleUserStatus = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const newStatus = !user.is_active;
+
+    if (user.role === "subadmin") {
+      // Pour les subadmins, utiliser subadmin_id dans l'API
+      const originalSubadmin = subadmins?.find((s) => s.subadmin_id === userId);
+      if (originalSubadmin) {
+        await updateSubadmin(originalSubadmin.subadmin_id, {
+          is_active: newStatus,
+        });
+      }
+    } else {
+      // Pour les caissiers, utiliser caissier_id dans l'API
+      const originalCaissier = caissiers?.find((c) => c.caissier_id === userId);
+      if (originalCaissier) {
+        await updateCaissier(originalCaissier.caissier_id, {
+          is_active: newStatus,
+        });
+      }
+    }
   };
 
   // Filtrage
   const filteredUsers = users.filter((user) => {
+    const name = user.subadmin_name || user.username || user.name || "";
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     const matchesStatus =
       statusFilter === "all" || user.status === statusFilter;
-    const matchesSearch = user.name
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
     return matchesRole && matchesStatus && matchesSearch;
   });
 
@@ -323,7 +391,7 @@ export default function UsersPage() {
                   </thead>
                   <tbody>
                     {filteredUsers.length === 0 ? (
-                      <tr>
+                      <tr key="no-users-desktop">
                         <td colSpan={5}>
                           <div className="flex flex-col items-center justify-center py-16">
                             <UserIcon
@@ -408,7 +476,7 @@ export default function UsersPage() {
               {/* Vue Mobile */}
               <div className="md:hidden">
                 {filteredUsers.length === 0 ? (
-                  <div className="p-6 text-center">
+                  <div key="no-users-mobile" className="p-6 text-center">
                     <div className="flex flex-col items-center justify-center text-zinc-500">
                       <UserIcon size={48} className="mb-4 text-zinc-300" />
                       <h3 className="text-lg font-medium text-zinc-900 mb-2">
@@ -507,17 +575,20 @@ export default function UsersPage() {
       <AddUserModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onAdd={(userData: UserRow) => {
-          // Simulation d'ajout d'utilisateur
-          const newUser: UserRow = {
-            id: String(users.length + 1),
-            name: userData.name,
-            email: userData.email,
-            createdAt: new Date(),
-            status: "active",
-            role: userData.role,
-          };
-          setUsers((prev) => [...prev, newUser]);
+        onAdd={async (userData: UserRow) => {
+          // Ajout d'utilisateur via API
+          if (userData.role === "subadmin") {
+            await createSubadmin({
+              subadmin_name: userData.name,
+              subadmin_email: userData.email,
+              subadmin_password: "defaultPassword123",
+            });
+          } else {
+            await createCaissier({
+              username: userData.name,
+              password: "defaultPassword123",
+            });
+          }
           setShowAddModal(false);
         }}
       />
@@ -532,31 +603,35 @@ export default function UsersPage() {
           selectedUser
             ? {
                 id: selectedUser.id,
-                name: selectedUser.name,
-                email: selectedUser.email,
+                name:
+                  selectedUser.subadmin_name ||
+                  selectedUser.username ||
+                  selectedUser.name ||
+                  "",
+                email: selectedUser.subadmin_email || selectedUser.email,
                 role: selectedUser.role,
-                status: selectedUser.status,
+                status: (selectedUser.is_active ? "active" : "inactive") as
+                  | "active"
+                  | "inactive",
               }
             : null
         }
-        onSave={(userData: {
+        onSave={async (userData: {
           id: string;
           name: string;
           email?: string;
           role: UserRole;
         }) => {
-          setUsers((prev) =>
-            prev.map((user) =>
-              user.id === userData.id
-                ? {
-                    ...user,
-                    name: userData.name,
-                    email: userData.email,
-                    role: userData.role,
-                  }
-                : user,
-            ),
-          );
+          if (userData.role === "subadmin") {
+            await updateSubadmin(userData.id, {
+              subadmin_name: userData.name,
+              subadmin_email: userData.email,
+            });
+          } else {
+            await updateCaissier(userData.id, {
+              username: userData.name,
+            });
+          }
           setShowEditModal(false);
           setSelectedUser(null);
         }}
@@ -572,15 +647,23 @@ export default function UsersPage() {
           selectedUser
             ? {
                 id: selectedUser.id,
-                name: selectedUser.name,
-                email: selectedUser.email,
+                name:
+                  selectedUser.subadmin_name ||
+                  selectedUser.username ||
+                  selectedUser.name ||
+                  "",
+                email: selectedUser.subadmin_email || selectedUser.email,
                 username:
                   selectedUser.role === "cashier"
-                    ? selectedUser.name
+                    ? selectedUser.username || selectedUser.name
                     : undefined,
                 role: selectedUser.role,
-                status: selectedUser.status,
-                createdAt: selectedUser.createdAt,
+                status: (selectedUser.is_active ? "active" : "inactive") as
+                  | "active"
+                  | "inactive",
+                createdAt: selectedUser.createdAt
+                  ? new Date(selectedUser.createdAt)
+                  : null,
               }
             : null
         }

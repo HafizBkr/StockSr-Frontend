@@ -19,6 +19,7 @@ type EditUserModalProps = {
     name: string;
     email?: string;
     role: UserRole;
+    password?: string;
   }) => void;
 };
 
@@ -31,6 +32,7 @@ export default function EditUserModal({
   const [form, setForm] = useState({
     name: "",
     email: "",
+    password: "",
     role: "cashier" as UserRole,
   });
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
@@ -40,6 +42,7 @@ export default function EditUserModal({
       setForm({
         name: user.name || "",
         email: user.email || "",
+        password: "",
         role: user.role,
       });
       setErrors({});
@@ -70,12 +73,22 @@ export default function EditUserModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    onSave({
+    const userData: {
+      id: string;
+      name: string;
+      email?: string;
+      role: UserRole;
+      password?: string;
+    } = {
       id: user.id,
       name: form.name.trim(),
       email: form.role === "subadmin" ? form.email.trim() : undefined,
       role: form.role,
-    });
+    };
+    if (form.password.trim()) {
+      userData.password = form.password.trim();
+    }
+    onSave(userData);
     onClose();
   };
 
@@ -120,7 +133,7 @@ export default function EditUserModal({
               onChange={(e) => handleChange("name", e.target.value)}
               className={`w-full px-4 py-2 rounded-lg border ${
                 errors.name ? "border-red-400" : "border-zinc-200"
-              } focus:outline-none focus:ring-2 focus:ring-green-300`}
+              } focus:outline-none focus:ring-2 focus:ring-green-300 text-black`}
               placeholder="Nom"
               required
             />
@@ -139,7 +152,7 @@ export default function EditUserModal({
                 onChange={(e) => handleChange("email", e.target.value)}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   errors.email ? "border-red-400" : "border-zinc-200"
-                } focus:outline-none focus:ring-2 focus:ring-green-300`}
+                } focus:outline-none focus:ring-2 focus:ring-green-300 text-black`}
                 placeholder="Email"
                 required
               />
@@ -148,6 +161,24 @@ export default function EditUserModal({
               )}
             </div>
           )}
+
+          {/* Mot de passe */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Nouveau mot de passe
+            </label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => handleChange("password", e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-green-300 text-black"
+              placeholder="Laisser vide pour ne pas changer"
+              autoComplete="new-password"
+            />
+            <div className="text-xs text-zinc-500 mt-1">
+              Laissez vide pour ne pas changer le mot de passe.
+            </div>
+          </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-6 border-t border-zinc-200">
