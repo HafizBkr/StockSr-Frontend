@@ -40,7 +40,7 @@ export default function ProductPreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/20 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full shadow-xl overflow-hidden">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] shadow-xl overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-200">
           <div className="flex items-center gap-4">
