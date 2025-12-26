@@ -36,15 +36,37 @@ export function useFournisseursApi(token: string | null) {
         throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
 
-      const data:
-        | FournisseurApiResponse[]
-        | { success: boolean; fournisseurs: FournisseurApiResponse[] } =
-        await response.json();
+      const data = await response.json();
 
       if (Array.isArray(data)) {
         setFournisseurs(data.map(mapApiResponseToFournisseur));
-      } else if (data.success && data.fournisseurs) {
-        setFournisseurs(data.fournisseurs.map(mapApiResponseToFournisseur));
+      } else if (
+        data &&
+        typeof data === "object" &&
+        "success" in data &&
+        data.success &&
+        data.data &&
+        Array.isArray(data.data.fournisseurs)
+      ) {
+        setFournisseurs(
+          data.data.fournisseurs.map(mapApiResponseToFournisseur),
+        );
+      } else if (
+        data &&
+        typeof data === "object" &&
+        "success" in data &&
+        data.success === false &&
+        "message" in data &&
+        typeof data.message === "string" &&
+        (data.message.toLowerCase().includes("token invalide") ||
+          data.message.toLowerCase().includes("token expiré") ||
+          data.message.toLowerCase().includes("token manquant"))
+      ) {
+        setError(
+          "Votre session a expiré ou le token est invalide. Veuillez vous reconnecter.",
+        );
+        // Optionnel : ici, tu pourrais déclencher un logout automatique ou une redirection
+        // Exemple : window.location.href = "/admin-login-xyz";
       } else {
         throw new Error("Erreur lors du chargement des fournisseurs");
       }

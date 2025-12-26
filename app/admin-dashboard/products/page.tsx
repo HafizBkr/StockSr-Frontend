@@ -20,6 +20,7 @@ import EditProductModal from "./modals/EditProductModal";
 import ProductPreviewModal from "./modals/ProductPreviewModal";
 import ClientOnlyDate from "../../../components/ClientOnlyDate";
 import { useAdminRequireAuth } from "../../../hooks/useAdminRequireAuth";
+import useAdminAuth from "../../../hooks/useAdminAuth";
 import { useProduitsApi } from "../../../hooks/useProduitsApi";
 import { useCategoriesApi } from "../../../hooks/useCategoriesApi";
 import { useFournisseursApi } from "../../../hooks/useFournisseursApi";
@@ -41,12 +42,8 @@ function formatCurrency(amount: number) {
 export default function ProductsPage() {
   useAdminRequireAuth();
 
-  // Récupération du token admin (adapter selon ton auth)
-  const [token] = useState(() =>
-    typeof window !== "undefined"
-      ? localStorage.getItem("admin_token") || ""
-      : "",
-  );
+  // Récupération dynamique du token admin via le hook d'auth
+  const { token, initialized } = useAdminAuth();
 
   // Hook pour produits
   const {
@@ -56,7 +53,7 @@ export default function ProductsPage() {
     fetchProduits,
     createProduit,
     updateProduit,
-  } = useProduitsApi(token);
+  } = useProduitsApi(token ?? "");
 
   // Hook pour catégories
   const {
@@ -64,7 +61,7 @@ export default function ProductsPage() {
     loading: loadingCategories,
     error: errorCategories,
     fetchCategories,
-  } = useCategoriesApi(token);
+  } = useCategoriesApi(token ?? "");
 
   // Hook pour fournisseurs
   const {
@@ -74,7 +71,7 @@ export default function ProductsPage() {
     fetchFournisseurs,
     getActiveFournisseurs,
     getFournisseurName,
-  } = useFournisseursApi(token);
+  } = useFournisseursApi(token ?? "");
 
   // États filtres et modales
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -390,7 +387,7 @@ export default function ProductsPage() {
                         Catégorie
                       </th>
                       <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide">
-                        Prix d'achat
+                        Prix d&apos;sachat
                       </th>
                       <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide">
                         Prix de vente
@@ -561,7 +558,9 @@ export default function ProductsPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
-                            <span className="text-zinc-500">Prix d'achat:</span>
+                            <span className="text-zinc-500">
+                              Prix d&apos;achat:
+                            </span>
                             <div className="font-medium">
                               {formatCurrency(product.prix_achat)}
                             </div>
@@ -620,6 +619,7 @@ export default function ProductsPage() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         categories={categories}
+        fournisseurs={fournisseurs}
         onSuccess={async (data: ProduitCreate) => {
           await createProduit(data);
           setShowAddModal(false);
@@ -634,6 +634,7 @@ export default function ProductsPage() {
         }}
         product={selectedProduct}
         categories={categories}
+        fournisseurs={fournisseurs}
         onSuccess={async (data: ProduitUpdate) => {
           if (selectedProduct) {
             await updateProduit(selectedProduct.produit_id, data);

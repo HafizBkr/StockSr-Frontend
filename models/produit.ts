@@ -1,8 +1,3 @@
-/frontend/models/produit.ts
-```
-```ts
-// Modèles TypeScript pour l'entité Produit (StockSR)
-
 export type Produit = {
   produit_id: string;
   nom: string;
@@ -39,7 +34,10 @@ export type ProduitCreate = {
   code_barre?: string;
 };
 
-export type ProduitUpdate = Partial<Omit<ProduitCreate, "categorie_id" | "fournisseur_id">> & {
+export type ProduitUpdate = Partial<
+  Omit<ProduitCreate, "categorie_id" | "fournisseur_id">
+> & {
   categorie_id?: string;
   fournisseur_id?: string;
+  is_active?: boolean;
 };
